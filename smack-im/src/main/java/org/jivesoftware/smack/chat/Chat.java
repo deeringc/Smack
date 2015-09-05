@@ -21,6 +21,7 @@ import org.jivesoftware.smack.PacketCollector;
 import org.jivesoftware.smack.SmackException.NotConnectedException;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.util.StringUtils;
+import org.jxmpp.jid.EntityJid;
 
 import java.util.Set;
 import java.util.Collections;
@@ -40,7 +41,7 @@ public class Chat {
 
     private ChatManager chatManager;
     private String threadID;
-    private String participant;
+    private EntityJid participant;
     private final Set<ChatMessageListener> listeners = new CopyOnWriteArraySet<ChatMessageListener>();
 
     /**
@@ -50,7 +51,7 @@ public class Chat {
      * @param participant the user to chat with.
      * @param threadID the thread ID to use.
      */
-    Chat(ChatManager chatManager, String participant, String threadID) {
+    Chat(ChatManager chatManager, EntityJid participant, String threadID) {
         if (StringUtils.isEmpty(threadID)) {
             throw new IllegalArgumentException("Thread ID must not be null");
         }
@@ -75,7 +76,7 @@ public class Chat {
      *
      * @return the name of the user the chat is occuring with.
      */
-    public String getParticipant() {
+    public EntityJid getParticipant() {
         return participant;
     }
 
@@ -91,8 +92,9 @@ public class Chat {
      *
      * @param text the text to send.
      * @throws NotConnectedException 
+     * @throws InterruptedException 
      */
-    public void sendMessage(String text) throws NotConnectedException {
+    public void sendMessage(String text) throws NotConnectedException, InterruptedException {
         Message message = new Message();
         message.setBody(text);
         sendMessage(message);
@@ -104,8 +106,9 @@ public class Chat {
      *
      * @param message the message to send.
      * @throws NotConnectedException 
+     * @throws InterruptedException 
      */
-    public void sendMessage(Message message) throws NotConnectedException {
+    public void sendMessage(Message message) throws NotConnectedException, InterruptedException {
         // Force the recipient, message type, and thread ID since the user elected
         // to send the message through this chat object.
         message.setTo(participant);
@@ -115,10 +118,10 @@ public class Chat {
     }
 
     /**
-     * Adds a packet listener that will be notified of any new messages in the
+     * Adds a stanza(/packet) listener that will be notified of any new messages in the
      * chat.
      *
-     * @param listener a packet listener.
+     * @param listener a stanza(/packet) listener.
      */
     public void addMessageListener(ChatMessageListener listener) {
         if(listener == null) {
@@ -185,7 +188,7 @@ public class Chat {
     public String toString() {
         return "Chat [(participant=" + participant + "), (thread=" + threadID + ")]";
     }
-    
+
     @Override
     public int hashCode() {
         int hash = 1;
@@ -193,7 +196,7 @@ public class Chat {
         hash = hash * 31 + participant.hashCode();
         return hash;
     }
-    
+
     @Override
     public boolean equals(Object obj) {
         return obj instanceof Chat

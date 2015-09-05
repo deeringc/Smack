@@ -31,6 +31,9 @@ import org.jivesoftware.smack.roster.packet.RosterPacket.Item;
 import org.jivesoftware.smack.util.FileUtils;
 import org.jivesoftware.smack.util.XmlStringBuilder;
 import org.jivesoftware.smack.util.stringencoder.Base32;
+import org.jxmpp.jid.BareJid;
+import org.jxmpp.jid.Jid;
+import org.jxmpp.jid.impl.JidCreate;
 import org.xmlpull.v1.XmlPullParserFactory;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -42,7 +45,7 @@ import org.xmlpull.v1.XmlPullParserException;
  * @author Lars Noschinski
  * @author Fabian Schuetz
  */
-public class DirectoryRosterStore implements RosterStore {
+public final class DirectoryRosterStore implements RosterStore {
 
     private final File fileDir;
 
@@ -73,7 +76,7 @@ public class DirectoryRosterStore implements RosterStore {
     }
 
     /**
-     * Creates a new roster store on disk
+     * Creates a new roster store on disk.
      *
      * @param baseDir
      *            The directory to create the store in. The directory should
@@ -92,7 +95,7 @@ public class DirectoryRosterStore implements RosterStore {
     }
 
     /**
-     * Opens a roster store
+     * Opens a roster store.
      * @param baseDir
      *            The directory containing the roster store.
      * @return A {@link DirectoryRosterStore} instance if successful,
@@ -120,7 +123,7 @@ public class DirectoryRosterStore implements RosterStore {
         for (File file : fileDir.listFiles(rosterDirFilter)) {
             Item entry = readEntry(file);
             if (entry == null) {
-                log("Roster store file '" + file + "' is invalid.");
+                LOGGER.severe("Roster store file '" + file + "' is invalid.");
             }
             else {
                 entries.add(entry);
@@ -131,7 +134,7 @@ public class DirectoryRosterStore implements RosterStore {
     }
 
     @Override
-    public Item getEntry(String bareJid) {
+    public Item getEntry(Jid bareJid) {
         return readEntry(getBareJidFile(bareJid));
     }
 
@@ -158,7 +161,7 @@ public class DirectoryRosterStore implements RosterStore {
     }
 
     @Override
-    public boolean removeEntry(String bareJid, String version) {
+    public boolean removeEntry(Jid bareJid, String version) {
         return getBareJidFile(bareJid).delete() && setRosterVersion(version);
     }
 
@@ -175,17 +178,18 @@ public class DirectoryRosterStore implements RosterStore {
         return setRosterVersion(version);
     }
 
-    private Item readEntry(File file) {
+    private static Item readEntry(File file) {
         String s = FileUtils.readFile(file);
         if (s == null) {
             return null;
         }
 
         String parserName;
-        String user = null;
+        BareJid user = null;
         String name = null;
         String type = null;
         String status = null;
+        String approved = null;
 
         List<String> groupNames = new ArrayList<String>();
 
@@ -199,11 +203,14 @@ public class DirectoryRosterStore implements RosterStore {
                 parserName = parser.getName();
                 if (eventType == XmlPullParser.START_TAG) {
                     if (parserName.equals("item")) {
-                        user = name = type = status = null;
+                        user = null;
+                        name = type = status = null;
                     }
                     else if (parserName.equals("user")) {
                         parser.next();
-                        user = parser.getText();
+
+                        String jidString = parser.getText();
+                        user = JidCreate.bareFrom(jidString);
                     }
                     else if (parserName.equals("name")) {
                         parser.next();
@@ -217,6 +224,10 @@ public class DirectoryRosterStore implements RosterStore {
                         parser.next();
                         status = parser.getText();
                     }
+                    else if (parserName.equals("approved")) {
+                        parser.next();
+                        approved = parser.getText();
+                    }
                     else if (parserName.equals("group")) {
                         parser.next();
                         parser.next();
@@ -225,7 +236,7 @@ public class DirectoryRosterStore implements RosterStore {
                             groupNames.add(group);
                         }
                         else {
-                            log("Invalid group entry in store entry file "
+                            LOGGER.severe("Invalid group entry in store entry file "
                                     + file);
                         }
                     }
@@ -242,9 +253,7 @@ public class DirectoryRosterStore implements RosterStore {
             return null;
         }
         catch (XmlPullParserException e) {
-            log("Invalid group entry in store entry file "
-                    + file);
-            LOGGER.log(Level.SEVERE, "readEntry()", e);
+            LOGGER.log(Level.SEVERE, "Invalid group entry in store entry file", e);
             return null;
         }
 
@@ -261,18 +270,21 @@ public class DirectoryRosterStore implements RosterStore {
                 item.setItemType(RosterPacket.ItemType.valueOf(type));
             }
             catch (IllegalArgumentException e) {
-                log("Invalid type in store entry file " + file);
+                LOGGER.log(Level.SEVERE, "Invalid type in store entry file " + file, e);
                 return null;
             }
             if (status != null) {
                 RosterPacket.ItemStatus itemStatus = RosterPacket.ItemStatus
                         .fromString(status);
                 if (itemStatus == null) {
-                    log("Invalid status in store entry file " + file);
+                    LOGGER.severe("Invalid status in store entry file " + file);
                     return null;
                 }
                 item.setItemStatus(itemStatus);
             }
+        }
+        if (approved != null) {
+            item.setApproved(Boolean.parseBoolean(approved));
         }
 
         return item;
@@ -282,10 +294,11 @@ public class DirectoryRosterStore implements RosterStore {
     private boolean addEntryRaw (Item item) {
         XmlStringBuilder xml = new XmlStringBuilder();
         xml.openElement("item");
-        xml.element("user", item.getUser());
+        xml.element("user", item.getJid());
         xml.optElement("name", item.getName());
         xml.optElement("type", item.getItemType());
         xml.optElement("status", item.getItemStatus());
+        xml.optElement("approved", Boolean.toString(item.isApproved()));
         for (String groupName : item.getGroupNames()) {
             xml.openElement("group");
             xml.element("groupName", groupName);
@@ -293,16 +306,12 @@ public class DirectoryRosterStore implements RosterStore {
         }
         xml.closeElement("item");
 
-        return FileUtils.writeFile(getBareJidFile(item.getUser()), xml.toString());
+        return FileUtils.writeFile(getBareJidFile(item.getJid()), xml.toString());
     }
 
 
-    private File getBareJidFile(String bareJid) {
-        String encodedJid = Base32.encode(bareJid);
+    private File getBareJidFile(Jid bareJid) {
+        String encodedJid = Base32.encode(bareJid.toString());
         return new File(fileDir, ENTRY_PREFIX + encodedJid);
-    }
-
-    private void log(String error) {
-        System.err.println(error);
     }
 }

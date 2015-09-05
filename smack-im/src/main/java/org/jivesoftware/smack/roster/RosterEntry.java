@@ -22,12 +22,14 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
+import org.jivesoftware.smack.Manager;
 import org.jivesoftware.smack.SmackException.NoResponseException;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.SmackException.NotConnectedException;
 import org.jivesoftware.smack.XMPPException.XMPPErrorException;
 import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.roster.packet.RosterPacket;
+import org.jxmpp.jid.BareJid;
 
 
 /**
@@ -36,18 +38,18 @@ import org.jivesoftware.smack.roster.packet.RosterPacket;
  *
  * @author Matt Tucker
  */
-public class RosterEntry {
+public final class RosterEntry extends Manager {
 
     /**
      * The JID of the entity/user.
      */
-    private final String user;
+    private final BareJid jid;
 
     private String name;
     private RosterPacket.ItemType type;
     private RosterPacket.ItemStatus status;
+    private final boolean approved;
     final private Roster roster;
-    final private XMPPConnection connection;
 
     /**
      * Creates a new roster entry.
@@ -56,25 +58,38 @@ public class RosterEntry {
      * @param name the nickname for the entry.
      * @param type the subscription type.
      * @param status the subscription status (related to subscriptions pending to be approbed).
+     * @param approved the pre-approval flag.
      * @param connection a connection to the XMPP server.
      */
-    RosterEntry(String user, String name, RosterPacket.ItemType type,
-                RosterPacket.ItemStatus status, Roster roster, XMPPConnection connection) {
-        this.user = user;
+    RosterEntry(BareJid user, String name, RosterPacket.ItemType type,
+                RosterPacket.ItemStatus status, boolean approved, Roster roster, XMPPConnection connection) {
+        super(connection);
+        this.jid = user;
         this.name = name;
         this.type = type;
         this.status = status;
+        this.approved = approved;
         this.roster = roster;
-        this.connection = connection;
     }
 
     /**
      * Returns the JID of the user associated with this entry.
      *
      * @return the user associated with this entry.
+     * @deprecated use {@link #getJid()} instead.
      */
+    @Deprecated
     public String getUser() {
-        return user;
+        return jid.toString();
+    }
+
+    /**
+     * Returns the JID associated with this entry.
+     *
+     * @return the user associated with this entry.
+     */
+    public BareJid getJid() {
+        return jid;
     }
 
     /**
@@ -93,8 +108,9 @@ public class RosterEntry {
      * @throws NotConnectedException 
      * @throws XMPPErrorException 
      * @throws NoResponseException 
+     * @throws InterruptedException 
      */
-    public void setName(String name) throws NotConnectedException, NoResponseException, XMPPErrorException {
+    public synchronized void setName(String name) throws NotConnectedException, NoResponseException, XMPPErrorException, InterruptedException {
         // Do nothing if the name hasn't changed.
         if (name != null && name.equals(this.name)) {
             return;
@@ -102,8 +118,11 @@ public class RosterEntry {
 
         RosterPacket packet = new RosterPacket();
         packet.setType(IQ.Type.set);
-        packet.addRosterItem(toRosterItem(this));
-        connection.createPacketCollectorAndSend(packet).nextResultOrThrow();
+
+        // Create a new roster item with the current RosterEntry and the *new* name. Note that we can't set the name of
+        // RosterEntry right away, as otherwise the updated event wont get fired, because equalsDeep would return true.
+        packet.addRosterItem(toRosterItem(this, name));
+        connection().createPacketCollectorAndSend(packet).nextResultOrThrow();
 
         // We have received a result response to the IQ set, the name was successfully changed
         this.name = name;
@@ -120,6 +139,15 @@ public class RosterEntry {
         this.name = name;
         this.type = type;
         this.status = status;
+    }
+
+    /**
+     * Returns the pre-approval state of this entry.
+     *
+     * @return the pre-approval state.
+     */
+    public boolean isApproved() {
+        return approved;
     }
 
     /**
@@ -167,7 +195,7 @@ public class RosterEntry {
         if (name != null) {
             buf.append(name).append(": ");
         }
-        buf.append(user);
+        buf.append(jid);
         Collection<RosterGroup> groups = getGroups();
         if (!groups.isEmpty()) {
             buf.append(" [");
@@ -179,14 +207,14 @@ public class RosterEntry {
                 group = iter.next();
                 buf.append(group.getName());
             }
-            buf.append("]");
+            buf.append(']');
         }
         return buf.toString();
     }
 
     @Override
     public int hashCode() {
-        return (user == null ? 0 : user.hashCode());
+        return (jid == null ? 0 : jid.hashCode());
     }
 
     public boolean equals(Object object) {
@@ -194,7 +222,7 @@ public class RosterEntry {
             return true;
         }
         if (object != null && object instanceof RosterEntry) {
-            return user.equals(((RosterEntry)object).getUser());
+            return jid.equals(((RosterEntry)object).getUser());
         }
         else {
             return false;
@@ -236,19 +264,26 @@ public class RosterEntry {
         }
         else if (!type.equals(other.type))
             return false;
-        if (user == null) {
-            if (other.user != null)
+        if (jid == null) {
+            if (other.jid != null)
                 return false;
         }
-        else if (!user.equals(other.user))
+        else if (!jid.equals(other.jid))
+            return false;
+        if (approved != other.approved)
             return false;
         return true;
     }
-    
+
     static RosterPacket.Item toRosterItem(RosterEntry entry) {
-        RosterPacket.Item item = new RosterPacket.Item(entry.getUser(), entry.getName());
+        return toRosterItem(entry, entry.getName());
+    }
+
+    private static RosterPacket.Item toRosterItem(RosterEntry entry, String name) {
+        RosterPacket.Item item = new RosterPacket.Item(entry.getJid(), name);
         item.setItemType(entry.getType());
         item.setItemStatus(entry.getStatus());
+        item.setApproved(entry.isApproved());
         // Set the correct group names for the item.
         for (RosterGroup group : entry.getGroups()) {
             item.addGroupName(group.getName());

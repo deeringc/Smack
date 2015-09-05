@@ -44,10 +44,12 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.jxmpp.jid.impl.JidCreate;
+import org.jxmpp.stringprep.XmppStringprepException;
 
 /**
  * Tests that verify the correct behavior of the {@link Roster} implementation
- * with regard to roster versioning
+ * with regard to roster versioning.
  *
  * @see Roster
  * @see <a href="http://xmpp.org/rfcs/rfc6121.html#roster">Managing the Roster</a>
@@ -97,7 +99,7 @@ public class RosterVersioningTest {
      * @throws SmackException 
      * @throws XMPPException 
      */
-    @Test(timeout = 5000)
+    @Test(timeout = 300000)
     public void testEqualVersionStored() throws InterruptedException, IOException, XMPPException, SmackException {
         answerWithEmptyRosterResult();
         roster.waitUntilLoaded();
@@ -130,9 +132,10 @@ public class RosterVersioningTest {
      * Tests that a non-empty roster result empties the store.
      * @throws SmackException 
      * @throws XMPPException 
+     * @throws XmppStringprepException 
      */
     @Test(timeout = 5000)
-    public void testOtherVersionStored() throws InterruptedException, XMPPException, SmackException {
+    public void testOtherVersionStored() throws XMPPException, SmackException, XmppStringprepException {
         Item vaglafItem = vaglafItem();
 
         // We expect that the roster request is the only packet sent. This is not part of the specification,
@@ -149,7 +152,7 @@ public class RosterVersioningTest {
             answer.addRosterItem(vaglafItem);
 
             rosterListener.reset();
-            connection.processPacket(answer);
+            connection.processStanza(answer);
             rosterListener.waitUntilInvocationOrTimeout();
         } else {
             assertTrue("Expected to get a RosterPacket ", false);
@@ -157,19 +160,19 @@ public class RosterVersioningTest {
 
         Roster roster = Roster.getInstanceFor(connection);
         assertEquals("Size of roster", 1, roster.getEntries().size());
-        RosterEntry entry = roster.getEntry(vaglafItem.getUser());
+        RosterEntry entry = roster.getEntry(vaglafItem.getJid());
         assertNotNull("Roster contains vaglaf entry", entry);
         assertEquals("vaglaf entry in roster equals the sent entry", vaglafItem, RosterEntry.toRosterItem(entry));
 
         RosterStore store = roster.getRosterStore();
         assertEquals("Size of store", 1, store.getEntries().size());
-        Item item = store.getEntry(vaglafItem.getUser());
+        Item item = store.getEntry(vaglafItem.getJid());
         assertNotNull("Store contains vaglaf entry");
         assertEquals("vaglaf entry in store equals the sent entry", vaglafItem, item);
     }
 
     /**
-     * Test roster versioning with roster pushes
+     * Test roster versioning with roster pushes.
      */
     @Test(timeout = 5000)
     public void testRosterVersioningWithCachedRosterAndPushes() throws Throwable {
@@ -181,19 +184,19 @@ public class RosterVersioningTest {
         // Simulate a roster push adding vaglaf
         {
             RosterPacket rosterPush = new RosterPacket();
-            rosterPush.setTo("rostertest@example.com/home");
+            rosterPush.setTo(JidCreate.from("rostertest@example.com/home"));
             rosterPush.setType(Type.set);
             rosterPush.setVersion("v97");
 
             Item pushedItem = vaglafItem();
             rosterPush.addRosterItem(pushedItem);
             rosterListener.reset();
-            connection.processPacket(rosterPush);
+            connection.processStanza(rosterPush);
             rosterListener.waitAndReset();
 
             assertEquals("Expect store version after push", "v97", store.getRosterVersion());
 
-            Item storedItem = store.getEntry("vaglaf@example.com");
+            Item storedItem = store.getEntry(JidCreate.from("vaglaf@example.com"));
             assertNotNull("Expect vaglaf to be added", storedItem);
             assertEquals("Expect vaglaf to be equal to pushed item", pushedItem, storedItem);
 
@@ -207,24 +210,24 @@ public class RosterVersioningTest {
         // Simulate a roster push removing vaglaf
         {
             RosterPacket rosterPush = new RosterPacket();
-            rosterPush.setTo("rostertest@example.com/home");
+            rosterPush.setTo(JidCreate.from("rostertest@example.com/home"));
             rosterPush.setType(Type.set);
             rosterPush.setVersion("v98");
 
-            Item item = new Item("vaglaf@example.com", "vaglaf the only");
+            Item item = new Item(JidCreate.entityBareFrom("vaglaf@example.com"), "vaglaf the only");
             item.setItemType(ItemType.remove);
             rosterPush.addRosterItem(item);
             rosterListener.reset();
-            connection.processPacket(rosterPush);
+            connection.processStanza(rosterPush);
             rosterListener.waitAndReset();
 
-            assertNull("Store doses not contain vaglaf", store.getEntry("vaglaf@example.com"));
+            assertNull("Store doses not contain vaglaf", store.getEntry(JidCreate.entityBareFrom("vaglaf@example.com")));
             assertEquals("Expect store version after push", "v98", store.getRosterVersion());
         }
     }
 
-    private Item vaglafItem() {
-        Item item = new Item("vaglaf@example.com", "vaglaf the only");
+    private static Item vaglafItem() throws XmppStringprepException {
+        Item item = new Item(JidCreate.entityBareFrom("vaglaf@example.com"), "vaglaf the only");
         item.setItemType(ItemType.both);
         item.addGroupName("all");
         item.addGroupName("friends");
@@ -232,27 +235,27 @@ public class RosterVersioningTest {
         return item;
     }
 
-    private void populateStore(RosterStore store) throws IOException {
-        store.addEntry(new RosterPacket.Item("geoff@example.com", "geoff hurley"), "");
+    private static void populateStore(RosterStore store) throws IOException {
+        store.addEntry(new RosterPacket.Item(JidCreate.entityBareFrom("geoff@example.com"), "geoff hurley"), "");
 
-        RosterPacket.Item item = new RosterPacket.Item("joe@example.com", "joe stevens");
+        RosterPacket.Item item = new RosterPacket.Item(JidCreate.entityBareFrom("joe@example.com"), "joe stevens");
         item.addGroupName("friends");
         item.addGroupName("partners");
         store.addEntry(item, "");
 
-        item = new RosterPacket.Item("higgins@example.com", "higgins mcmann");
+        item = new RosterPacket.Item(JidCreate.entityBareFrom("higgins@example.com"), "higgins mcmann");
         item.addGroupName("all");
         item.addGroupName("friends");
         store.addEntry(item, "v96");
     }
 
-    private void answerWithEmptyRosterResult() throws InterruptedException {
+    private void answerWithEmptyRosterResult() {
         // We expect that the roster request is the only packet sent. This is not part of the specification,
         // but a shortcut in the test implementation.
         Stanza sentPacket = connection.getSentPacket();
         if (sentPacket instanceof RosterPacket) {
             final IQ emptyIQ = IQ.createResultIQ((RosterPacket)sentPacket);
-            connection.processPacket(emptyIQ);
+            connection.processStanza(emptyIQ);
         } else {
             assertTrue("Expected to get a RosterPacket ", false);
         }

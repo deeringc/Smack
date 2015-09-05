@@ -184,6 +184,11 @@ public class MultiMap<K,V> {
         return map.keySet();
     }
 
+    /**
+     * Returns a new list containing all values of this multi map.
+     *
+     * @return a new list with all values.
+     */
     public List<V> values() {
         List<V> values = new ArrayList<>(size());
         for (Set<V> set : map.values()) {
@@ -203,7 +208,7 @@ public class MultiMap<K,V> {
         return entrySet;
     }
 
-    private static class SimpleMapEntry<K, V> implements Map.Entry<K, V> {
+    private static final class SimpleMapEntry<K, V> implements Map.Entry<K, V> {
 
         private final K key;
         private V value;

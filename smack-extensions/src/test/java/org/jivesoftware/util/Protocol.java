@@ -36,8 +36,8 @@ import org.jivesoftware.smack.packet.Stanza;
 
 /**
  * This class can be used in conjunction with a mocked XMPP connection (
- * {@link ConnectionUtils#createMockedConnection(Protocol, String, String)}) to
- * verify a XMPP protocol. This can be accomplished in the following was:
+ * {@link ConnectionUtils#createMockedConnection(Protocol, org.jxmpp.jid.EntityFullJid, org.jxmpp.jid.DomainBareJid)}) to
+ * verify an XMPP protocol. This can be accomplished in the following was:
  * <ul>
  * <li>add responses to packets sent over the mocked XMPP connection by the
  * method to test in the order the tested method awaits them</li>
@@ -50,10 +50,10 @@ import org.jivesoftware.smack.packet.Stanza;
  * <pre>
  * <code>
  * public void methodToTest() {
- *   Packet packet = new Packet(); // create an XMPP packet
- *   PacketCollector collector = connection.createPacketCollector(new PacketIDFilter());
- *   connection.sendPacket(packet);
- *   Packet reply = collector.nextResult();
+ *   Stanza(/Packet) stanza(/packet) = new Packet(); // create an XMPP packet
+ *   PacketCollector collector = connection.createPacketCollector(new StanzaIdFilter());
+ *   connection.sendStanza(packet);
+ *   Stanza(/Packet) reply = collector.nextResult();
  * }
  * 
  * public void testMethod() {
@@ -62,8 +62,8 @@ import org.jivesoftware.smack.packet.Stanza;
  *   // create mocked connection
  *   XMPPConnection connection = ConnectionUtils.createMockedConnection(protocol, "user@xmpp-server", "xmpp-server");
  *   
- *   // add reply packet to protocol
- *   Packet reply = new Packet();
+ *   // add reply stanza(/packet) to protocol
+ *   Stanza(/Packet) reply = new Packet();
  *   protocol.add(reply);
  *   
  *   // call method to test
@@ -124,6 +124,7 @@ public class Protocol {
      */
     @SuppressWarnings("unchecked")
     public void verifyAll() {
+        // CHECKSTYLE:OFF
         assertEquals(requests.size(), responsesList.size());
 
         if (printProtocol)
@@ -154,6 +155,7 @@ public class Protocol {
         }
         if (printProtocol)
             System.out.println("=================== End =================\n");
+        // CHECKSTYLE:ON
     }
 
     /**
@@ -174,7 +176,7 @@ public class Protocol {
         return requests;
     }
 
-    private String prettyFormat(String input, int indent) {
+    private static String prettyFormat(String input, int indent) {
         try {
             Source xmlInput = new StreamSource(new StringReader(input));
             StringWriter stringWriter = new StringWriter();
@@ -191,7 +193,7 @@ public class Protocol {
         }
     }
 
-    private String prettyFormat(String input) {
+    private static String prettyFormat(String input) {
         return prettyFormat(input, 2);
     }
 

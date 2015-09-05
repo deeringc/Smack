@@ -17,17 +17,17 @@
 package org.jivesoftware.smackx.forward.packet;
 
 import org.jivesoftware.smack.packet.Stanza;
-import org.jivesoftware.smack.packet.PacketExtension;
+import org.jivesoftware.smack.packet.ExtensionElement;
 import org.jivesoftware.smack.util.XmlStringBuilder;
 import org.jivesoftware.smackx.delay.packet.DelayInformation;
 
 /**
- * Packet extension for >XEP-0297: Stanza Forwarding.
+ * Stanza(/Packet) extension for >XEP-0297: Stanza Forwarding.
  * 
  * @author Georg Lukas
  * @see <a href="http://xmpp.org/extensions/xep-0297.html">XEP-0297: Stanza Forwarding</a>
  */
-public class Forwarded implements PacketExtension {
+public class Forwarded implements ExtensionElement {
     public static final String NAMESPACE = "urn:xmpp:forward:0";
     public static final String ELEMENT = "forwarded";
 
@@ -35,10 +35,10 @@ public class Forwarded implements PacketExtension {
     private final Stanza forwardedPacket;
 
     /**
-     * Creates a new Forwarded packet extension.
+     * Creates a new Forwarded stanza(/packet) extension.
      *
      * @param delay an optional {@link DelayInformation} timestamp of the packet.
-     * @param fwdPacket the packet that is forwarded (required).
+     * @param fwdPacket the stanza(/packet) that is forwarded (required).
      */
     public Forwarded(DelayInformation delay, Stanza fwdPacket) {
         this.delay = delay;
@@ -46,9 +46,9 @@ public class Forwarded implements PacketExtension {
     }
 
     /**
-     * Creates a new Forwarded packet extension.
+     * Creates a new Forwarded stanza(/packet) extension.
      *
-     * @param fwdPacket the packet that is forwarded (required).
+     * @param fwdPacket the stanza(/packet) that is forwarded (required).
      */
     public Forwarded(Stanza fwdPacket) {
         this(null, fwdPacket);
@@ -75,25 +75,36 @@ public class Forwarded implements PacketExtension {
     }
 
     /**
-     * get the packet forwarded by this stanza.
+     * get the stanza(/packet) forwarded by this stanza.
      *
      * @return the {@link Stanza} instance (typically a message) that was forwarded.
+     * @deprecated use @{link {@link #getForwardedStanza()}} instead.
      */
+    @Deprecated
     public Stanza getForwardedPacket() {
+        return forwardedPacket;
+    }
+
+    /**
+     * Get the forwarded Stanza found in this extension.
+     *
+     * @return the {@link Stanza} (typically a message) that was forwarded.
+     */
+    public Stanza getForwardedStanza() {
         return forwardedPacket;
     }
 
     /**
      * get the timestamp of the forwarded packet.
      *
-     * @return the {@link DelayInformation} representing the time when the original packet was sent. May be null.
+     * @return the {@link DelayInformation} representing the time when the original stanza(/packet) was sent. May be null.
      */
     public DelayInformation getDelayInformation() {
         return delay;
     }
 
     /**
-     * 
+     * Get the forwarded extension.
      * @param packet
      * @return the Forwarded extension or null
      */

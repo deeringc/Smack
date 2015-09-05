@@ -21,12 +21,14 @@ import static org.junit.Assert.assertTrue;
 import org.jivesoftware.smack.DummyConnection;
 import org.jivesoftware.smack.SmackException.NoResponseException;
 import org.jivesoftware.smack.packet.Stanza;
+import org.jivesoftware.smackx.InitExtensions;
 import org.jivesoftware.smackx.disco.ServiceDiscoveryManager;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.jxmpp.jid.JidTestUtil;
 
-public class FileTransferNegotiatorTest {
+public class FileTransferNegotiatorTest extends InitExtensions {
     private DummyConnection connection;
 
     @Before
@@ -50,7 +52,7 @@ public class FileTransferNegotiatorTest {
     public void verifyForm() throws Exception {
         FileTransferNegotiator fileNeg = FileTransferNegotiator.getInstanceFor(connection);
         try {
-            fileNeg.negotiateOutgoingTransfer("me", "streamid", "file", 1024, null, 10);
+            fileNeg.negotiateOutgoingTransfer(JidTestUtil.DUMMY_AT_EXAMPLE_ORG, "streamid", "file", 1024, null, 10);
         } catch (NoResponseException e) {
             // Ignore
         }

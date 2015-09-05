@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.List;
 
 import org.jivesoftware.smack.packet.NamedElement;
+import org.jivesoftware.smack.util.StringUtils;
 import org.jivesoftware.smack.util.XmlStringBuilder;
 import org.jivesoftware.smackx.xdatavalidation.packet.ValidateElement;
 
@@ -37,7 +38,7 @@ public class FormField implements NamedElement {
     public static final String ELEMENT = "field";
 
     /**
-     * The constant String "FORM_TYPE"
+     * The constant String "FORM_TYPE".
      */
     public static final String FORM_TYPE = "FORM_TYPE";
 
@@ -58,17 +59,17 @@ public class FormField implements NamedElement {
         bool,
 
         /**
-         * Fixed for putting in text to show sections, or just advertise your web site in the middle of the form
+         * Fixed for putting in text to show sections, or just advertise your web site in the middle of the form.
          */
         fixed,
 
         /**
-         * Is not given to the user at all, but returned with the questionnaire
+         * Is not given to the user at all, but returned with the questionnaire.
          */
         hidden,
 
         /**
-         * multiple entries for JIDs
+         * multiple entries for JIDs.
          */
         jid_multi,
 
@@ -150,7 +151,7 @@ public class FormField implements NamedElement {
      * @param variable the variable name of the question.
      */
     public FormField(String variable) {
-        this.variable = variable;
+        this.variable = StringUtils.requireNotNullOrEmpty(variable, "Variable must not be null or empty");
     }
 
     /**
@@ -158,16 +159,17 @@ public class FormField implements NamedElement {
      * name.
      */
     public FormField() {
-        this(null);
+        this.variable = null;
         this.type = Type.fixed;
     }
 
     /**
      * Returns a description that provides extra clarification about the question. This information
      * could be presented to the user either in tool-tip, help button, or as a section of text
-     * before the question.<p>
-     * <p/>
+     * before the question.
+     * <p>
      * If the question is of type FIXED then the description should remain empty.
+     * </p>
      *
      * @return description that provides extra clarification about the question.
      */
@@ -244,6 +246,8 @@ public class FormField implements NamedElement {
     }
 
     /**
+     * Get validate element.
+     *
      * @return the validateElement
      */
     public ValidateElement getValidateElement() {
@@ -253,9 +257,10 @@ public class FormField implements NamedElement {
     /**
      * Sets a description that provides extra clarification about the question. This information
      * could be presented to the user either in tool-tip, help button, or as a section of text
-     * before the question.<p>
-     * <p/>
+     * before the question.
+     * <p>
      * If the question is of type FIXED then the description should remain empty.
+     * </p>
      *
      * @param description provides extra clarification about the question.
      */
@@ -283,6 +288,7 @@ public class FormField implements NamedElement {
     }
 
     /**
+     * Set validate element.
      * @param validateElement the validateElement to set
      */
     public void setValidateElement(ValidateElement validateElement) {

@@ -26,11 +26,12 @@ import org.jivesoftware.smack.util.StringUtils;
 import org.jivesoftware.smack.util.XmlStringBuilder;
 
 /**
- * Represents a XMPP error sub-packet. Typically, a server responds to a request that has
- * problems by sending the packet back and including an error packet. Each error has a type,
+ * Represents an XMPP error sub-packet. Typically, a server responds to a request that has
+ * problems by sending the stanza(/packet) back and including an error packet. Each error has a type,
  * error condition as well as as an optional text explanation. Typical errors are:<p>
  *
  * <table border=1>
+ *      <caption>XMPP Errors</caption>
  *      <hr><td><b>XMPP Error Condition</b></td><td><b>Type</b></td><td><b>RFC 6120 Section</b></td></hr>
  *      <tr><td>bad-request</td><td>MODIFY</td><td>8.3.3.1</td></tr>
  *      <tr><td>conflict</td><td>CANCEL</td><td>8.3.3.2</td></tr>
@@ -99,7 +100,7 @@ public class XMPPError extends AbstractError {
         this(condition, null, null, null, null, null);
     }
 
-    public XMPPError(Condition condition, PacketExtension applicationSpecificCondition) {
+    public XMPPError(Condition condition, ExtensionElement applicationSpecificCondition) {
         this(condition, null, null, null, null, Arrays.asList(applicationSpecificCondition));
     }
 
@@ -112,10 +113,10 @@ public class XMPPError extends AbstractError {
      * @param type the error type.
      * @param condition the error condition.
      * @param descriptiveTexts 
-     * @param extensions list of packet extensions
+     * @param extensions list of stanza(/packet) extensions
      */
     public XMPPError(Condition condition, String conditionText, String errorGenerator, Type type, Map<String, String> descriptiveTexts,
-            List<PacketExtension> extensions) {
+            List<ExtensionElement> extensions) {
         super(descriptiveTexts, NAMESPACE, extensions);
         this.condition = condition;
         // Some implementations may send the condition as non-empty element containing the empty string, that is
@@ -199,7 +200,14 @@ public class XMPPError extends AbstractError {
 
         xml.halfOpenElement(condition.toString());
         xml.xmlnsAttribute(NAMESPACE);
-        xml.closeEmptyElement();
+        if (conditionText != null) {
+            xml.rightAngleBracket();
+            xml.escape(conditionText);
+            xml.closeElement(condition.toString());
+        }
+        else {
+            xml.closeEmptyElement();
+        }
 
         addDescriptiveTextsAndExtensions(xml);
 

@@ -16,15 +16,15 @@
  */
 package org.jivesoftware.smack.sm.packet;
 
-import org.jivesoftware.smack.packet.FullStreamElement;
-import org.jivesoftware.smack.packet.PacketExtension;
+import org.jivesoftware.smack.packet.Nonza;
+import org.jivesoftware.smack.packet.ExtensionElement;
 import org.jivesoftware.smack.packet.XMPPError;
 import org.jivesoftware.smack.util.XmlStringBuilder;
 
 public class StreamManagement {
     public static final String NAMESPACE = "urn:xmpp:sm:3";
 
-    public static class StreamManagementFeature implements PacketExtension {
+    public static final class StreamManagementFeature implements ExtensionElement {
 
         public static final String ELEMENT = "sm";
         public static final StreamManagementFeature INSTANCE = new StreamManagementFeature();
@@ -50,7 +50,7 @@ public class StreamManagement {
         }
     }
 
-    private static abstract class AbstractEnable extends FullStreamElement {
+    private static abstract class AbstractEnable implements Nonza {
 
         /**
          * Preferred maximum resumption time in seconds (optional).
@@ -186,7 +186,7 @@ public class StreamManagement {
         }
     }
 
-    public static class Failed extends FullStreamElement {
+    public static class Failed implements Nonza {
         public static final String ELEMENT = "failed";
 
         private XMPPError.Condition condition;
@@ -229,7 +229,7 @@ public class StreamManagement {
 
     }
 
-    private static abstract class AbstractResume extends FullStreamElement {
+    private static abstract class AbstractResume implements Nonza {
 
         private final long handledCount;
         private final String previd;
@@ -288,7 +288,7 @@ public class StreamManagement {
         }
     }
 
-    public static class AckAnswer extends FullStreamElement {
+    public static class AckAnswer implements Nonza {
         public static final String ELEMENT = "a";
 
         private final long handledCount;
@@ -320,7 +320,7 @@ public class StreamManagement {
         }
     }
 
-    public static class AckRequest extends FullStreamElement {
+    public static final class AckRequest implements Nonza {
         public static final String ELEMENT = "r";
         public static final AckRequest INSTANCE = new AckRequest();
 

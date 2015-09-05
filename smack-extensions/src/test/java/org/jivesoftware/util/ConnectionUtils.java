@@ -27,11 +27,13 @@ import org.jivesoftware.smack.PacketCollector;
 import org.jivesoftware.smack.SmackException;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException.XMPPErrorException;
-import org.jivesoftware.smack.filter.PacketFilter;
+import org.jivesoftware.smack.filter.StanzaFilter;
 import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.packet.Stanza;
 import org.jivesoftware.smack.packet.XMPPError;
 import org.jivesoftware.smackx.disco.ServiceDiscoveryManager;
+import org.jxmpp.jid.DomainBareJid;
+import org.jxmpp.jid.EntityFullJid;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
@@ -43,7 +45,7 @@ import org.mockito.stubbing.Answer;
 public class ConnectionUtils {
 
     /**
-     * Creates a mocked XMPP connection that stores every packet that is send over this
+     * Creates a mocked XMPP connection that stores every stanza(/packet) that is send over this
      * connection in the given protocol instance and returns the predefined answer packets
      * form the protocol instance.
      * <p>
@@ -53,8 +55,8 @@ public class ConnectionUtils {
      * <pre>
      * <code>
      *   PacketCollector collector = connection.createPacketCollector(new PacketFilter());
-     *   connection.sendPacket(packet);
-     *   Packet reply = collector.nextResult();
+     *   connection.sendStanza(packet);
+     *   Stanza(/Packet) reply = collector.nextResult();
      * </code>
      * </pre>
      * 
@@ -64,18 +66,19 @@ public class ConnectionUtils {
      * @return a mocked XMPP connection
      * @throws SmackException 
      * @throws XMPPErrorException 
+     * @throws InterruptedException 
      */
     public static XMPPConnection createMockedConnection(final Protocol protocol,
-                    String initiatorJID, String xmppServer) throws SmackException, XMPPErrorException {
+                    EntityFullJid initiatorJID, DomainBareJid xmppServer) throws SmackException, XMPPErrorException, InterruptedException {
 
         // mock XMPP connection
         XMPPConnection connection = mock(XMPPConnection.class);
         when(connection.getUser()).thenReturn(initiatorJID);
-        when(connection.getServiceName()).thenReturn(xmppServer);
+        when(connection.getXMPPServiceDomain()).thenReturn(xmppServer);
 
         // mock packet collector
         final PacketCollector collector = mock(PacketCollector.class);
-        when(connection.createPacketCollector(isA(PacketFilter.class))).thenReturn(
+        when(connection.createPacketCollector(isA(StanzaFilter.class))).thenReturn(
                         collector);
         Answer<PacketCollector> collectorAndSend = new Answer<PacketCollector>() {
             @Override
@@ -95,7 +98,7 @@ public class ConnectionUtils {
                 return null;
             }
         };
-        doAnswer(addIncoming).when(connection).sendPacket(isA(Stanza.class));
+        doAnswer(addIncoming).when(connection).sendStanza(isA(Stanza.class));
 
         // mock receive methods
         Answer<Stanza> answer = new Answer<Stanza>() {

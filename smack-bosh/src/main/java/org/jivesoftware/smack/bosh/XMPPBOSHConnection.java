@@ -31,18 +31,18 @@ import org.jivesoftware.smack.SmackException.NotConnectedException;
 import org.jivesoftware.smack.SmackException.ConnectionException;
 import org.jivesoftware.smack.XMPPException.StreamErrorException;
 import org.jivesoftware.smack.XMPPConnection;
-import org.jivesoftware.smack.ConnectionCreationListener;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.packet.Element;
 import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Stanza;
-import org.jivesoftware.smack.packet.PlainStreamElement;
+import org.jivesoftware.smack.packet.Nonza;
 import org.jivesoftware.smack.packet.Presence;
-import org.jivesoftware.smack.packet.Presence.Type;
 import org.jivesoftware.smack.sasl.packet.SaslStreamElements.SASLFailure;
 import org.jivesoftware.smack.sasl.packet.SaslStreamElements.Success;
 import org.jivesoftware.smack.util.PacketParserUtils;
+import org.jxmpp.jid.DomainBareJid;
+import org.jxmpp.jid.parts.Resourcepart;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserFactory;
 import org.igniterealtime.jbosh.AbstractBody;
@@ -58,7 +58,7 @@ import org.igniterealtime.jbosh.BodyQName;
 import org.igniterealtime.jbosh.ComposableBody;
 
 /**
- * Creates a connection to a XMPP server via HTTP binding.
+ * Creates a connection to an XMPP server via HTTP binding.
  * This is specified in the XEP-0206: XMPP Over BOSH.
  * 
  * @see XMPPConnection
@@ -101,7 +101,7 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
     protected String sessionID = null;
 
     /**
-     * Create a HTTP Binding connection to a XMPP server.
+     * Create a HTTP Binding connection to an XMPP server.
      * 
      * @param username the username to use.
      * @param password the password to use.
@@ -113,17 +113,17 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
      *             (e.g. 7070 for http://domain.lt:7070/http-bind).
      * @param filePath the file which is described by the URL
      *             (e.g. /http-bind for http://domain.lt:7070/http-bind).
-     * @param xmppDomain the XMPP service name
+     * @param xmppServiceDomain the XMPP service name
      *             (e.g. domain.lt for the user alice@domain.lt)
      */
-    public XMPPBOSHConnection(String username, String password, boolean https, String host, int port, String filePath, String xmppDomain) {
+    public XMPPBOSHConnection(String username, String password, boolean https, String host, int port, String filePath, DomainBareJid xmppServiceDomain) {
         this(BOSHConfiguration.builder().setUseHttps(https).setHost(host)
-                .setPort(port).setFile(filePath).setServiceName(xmppDomain)
+                .setPort(port).setFile(filePath).setXmppDomain(xmppServiceDomain)
                 .setUsernameAndPassword(username, password).build());
     }
 
     /**
-     * Create a HTTP Binding connection to a XMPP server.
+     * Create a HTTP Binding connection to an XMPP server.
      * 
      * @param config The configuration which is used for this connection.
      */
@@ -133,7 +133,7 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
     }
 
     @Override
-    protected void connectInternal() throws SmackException {
+    protected void connectInternal() throws SmackException, InterruptedException {
         done = false;
         try {
             // Ensure a clean starting state
@@ -145,7 +145,7 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
 
             // Initialize BOSH client
             BOSHClientConfig.Builder cfgBuilder = BOSHClientConfig.Builder
-                    .create(config.getURI(), config.getServiceName());
+                    .create(config.getURI(), config.getXMPPServiceDomain().toString());
             if (config.isProxyEnabled()) {
                 cfgBuilder.setProxy(config.getProxyAddress(), config.getProxyPort());
             }
@@ -159,7 +159,7 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
                 initDebugger();
                 if (isFirstInitialization) {
                     if (debugger.getReaderListener() != null) {
-                        addAsyncPacketListener(debugger.getReaderListener(), null);
+                        addAsyncStanzaListener(debugger.getReaderListener(), null);
                     }
                     if (debugger.getWriterListener() != null) {
                         addPacketSendingListener(debugger.getWriterListener(), null);
@@ -211,18 +211,10 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
     }
 
     @Override
-    protected void loginNonAnonymously(String username, String password, String resource)
-            throws XMPPException, SmackException, IOException {
-        if (saslAuthentication.hasNonAnonymousAuthentication()) {
-            // Authenticate using SASL
-            if (password != null) {
-                 saslAuthentication.authenticate(username, password, resource);
-            } else {
-                saslAuthentication.authenticate(resource, config.getCallbackHandler());
-            }
-        } else {
-            throw new SmackException("No non-anonymous SASL authentication mechanism available");
-        }
+    protected void loginInternal(String username, String password, Resourcepart resource) throws XMPPException,
+                    SmackException, IOException, InterruptedException {
+        // Authenticate using SASL
+        saslAuthentication.authenticate(username, password);
 
         bindResourceAndEstablishSession(resource);
 
@@ -230,25 +222,7 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
     }
 
     @Override
-    protected void loginAnonymously() throws XMPPException, SmackException, IOException {
-        // Wait with SASL auth until the SASL mechanisms have been received
-        saslFeatureReceived.checkIfSuccessOrWaitOrThrow();
-
-        if (saslAuthentication.hasAnonymousAuthentication()) {
-            saslAuthentication.authenticateAnonymously();
-        }
-        else {
-            // Authenticate using Non-SASL
-            throw new SmackException("No anonymous SASL authentication mechanism available");
-        }
-
-        bindResourceAndEstablishSession(null);
-
-        afterSuccessfulLogin(false);
-    }
-
-    @Override
-    public void send(PlainStreamElement element) throws NotConnectedException {
+    public void sendNonza(Nonza element) throws NotConnectedException {
         if (done) {
             throw new NotConnectedException();
         }
@@ -256,7 +230,7 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
     }
 
     @Override
-    protected void sendPacketInternal(Stanza packet) throws NotConnectedException {
+    protected void sendStanzaInternal(Stanza packet) throws NotConnectedException {
         sendElement(packet);
     }
 
@@ -268,7 +242,7 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
             }
         }
         catch (BOSHException e) {
-            LOGGER.log(Level.SEVERE, "BOSHException in sendPacketInternal", e);
+            LOGGER.log(Level.SEVERE, "BOSHException in sendStanzaInternal", e);
         }
     }
 
@@ -276,7 +250,7 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
      * Closes the connection by setting presence to unavailable and closing the 
      * HTTP client. The shutdown logic will be used during a planned disconnection or when
      * dealing with an unexpected disconnection. Unlike {@link #disconnect()} the connection's
-     * BOSH packet reader will not be removed; thus connection's state is kept.
+     * BOSH stanza(/packet) reader will not be removed; thus connection's state is kept.
      *
      */
     @Override
@@ -287,19 +261,6 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
         authenticated = false;
         connected = false;
         isFirstInitialization = false;
-
-        Presence unavailablePresence = new Presence(Type.unavailable);
-        try {
-            client.disconnect(ComposableBody.builder()
-                    .setNamespaceDefinition("xmpp", XMPP_BOSH_NS)
-                    .setPayloadXML(unavailablePresence.toXML().toString())
-                    .build());
-            // Wait 150 ms for processes to clean-up, then shutdown.
-            Thread.sleep(150);
-        }
-        catch (Exception e) {
-            // Ignore.
-        }
 
         // Close down the readers and writers.
         if (readerPipe != null) {
@@ -448,9 +409,6 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
                     connected = true;
                     if (isFirstInitialization) {
                         isFirstInitialization = false;
-                        for (ConnectionCreationListener listener : getConnectionCreationListeners()) {
-                            listener.connectionCreated(XMPPBOSHConnection.this);
-                        }
                     }
                     else {
                             if (wasAuthenticated) {
@@ -490,7 +448,7 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
 
     /**
      * Listens for XML traffic from the BOSH connection manager and parses it into
-     * packet objects.
+     * stanza(/packet) objects.
      *
      * @author Guenther Niess
      */
@@ -537,9 +495,10 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
                                                 XMPPBOSHConnection.XMPP_BOSH_NS).setAttribute(
                                                 BodyQName.createWithPrefix(XMPPBOSHConnection.XMPP_BOSH_NS, "restart",
                                                                 "xmpp"), "true").setAttribute(
-                                                BodyQName.create(XMPPBOSHConnection.BOSH_URI, "to"), getServiceName()).build());
+                                                BodyQName.create(XMPPBOSHConnection.BOSH_URI, "to"), getXMPPServiceDomain().toString()).build());
                                 Success success = new Success(parser.nextText());
                                 getSASLAuthentication().authenticated(success);
+                                break;
                             case "features":
                                 parseFeatures(parser);
                                 break;

@@ -1,6 +1,6 @@
 /**
  *
- * Copyright 2014 Florian Schmaus
+ * Copyright 2014-2015 Florian Schmaus
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,9 @@ package org.jivesoftware.smack;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.jivesoftware.smack.filter.StanzaFilter;
 import org.jivesoftware.smack.util.dns.HostAddress;
+import org.jxmpp.jid.Jid;
 
 /**
  * Smack uses SmackExceptions for errors that are not defined by any XMPP specification.
@@ -54,19 +56,67 @@ public class SmackException extends Exception {
     }
 
     /**
-     * Exception thrown always when there was no response to an request within the packet reply timeout of the used
-     * connection instance. You can modify (e.g. increase) the packet reply timeout with
+     * Exception thrown always when there was no response to an request within the stanza(/packet) reply timeout of the used
+     * connection instance. You can modify (e.g. increase) the stanza(/packet) reply timeout with
      * {@link XMPPConnection#setPacketReplyTimeout(long)}.
      */
-    public static class NoResponseException extends SmackException {
+    public static final class NoResponseException extends SmackException {
         /**
          * 
          */
         private static final long serialVersionUID = -6523363748984543636L;
 
-        public NoResponseException(XMPPConnection connection) {
-            super("No response received within packet reply timeout. Timeout was " + connection.getPacketReplyTimeout()
-                            + "ms (~" + connection.getPacketReplyTimeout() / 1000 + "s)");
+        private final StanzaFilter filter;
+
+        private NoResponseException(String message) {
+            this(message, null);
+        }
+
+        private NoResponseException(String message, StanzaFilter filter) {
+            super(message);
+            this.filter = filter;
+        }
+
+        /**
+         * Get the filter that was used to collect the response.
+         *
+         * @return the used filter or <code>null</code>.
+         */
+        public StanzaFilter getFilter() {
+            return filter;
+        }
+
+        public static NoResponseException newWith(XMPPConnection connection, String waitingFor) {
+            final StringBuilder sb = getWaitingFor(connection);
+            sb.append(" While waiting for ").append(waitingFor);
+            return new NoResponseException(sb.toString());
+        }
+
+        public static NoResponseException newWith(XMPPConnection connection,
+                        PacketCollector collector) {
+            return newWith(connection, collector.getStanzaFilter());
+        }
+
+        public static NoResponseException newWith(XMPPConnection connection, StanzaFilter filter) {
+            final StringBuilder sb = getWaitingFor(connection);
+            sb.append(" Waited for response using: ");
+            if (filter != null) {
+                sb.append(filter.toString());
+            }
+            else {
+                sb.append("No filter used or filter was 'null'");
+            }
+            sb.append('.');
+            return new NoResponseException(sb.toString(), filter);
+        }
+
+        private static StringBuilder getWaitingFor(XMPPConnection connection) {
+            final long replyTimeout = connection.getPacketReplyTimeout();
+            final StringBuilder sb = new StringBuilder(256);
+            sb.append("No response received within reply timeout. Timeout was "
+                            + replyTimeout + "ms (~"
+                            + replyTimeout / 1000 + "s).");
+            return sb;
         }
     }
 
@@ -115,6 +165,16 @@ public class SmackException extends Exception {
 
         public NotConnectedException() {
             super("Client is not, or no longer, connected");
+        }
+
+        public NotConnectedException(XMPPConnection connection, String details) {
+            super("The connection " + connection.toString() + " is no longer connected. "
+                            + details);
+        }
+
+        public NotConnectedException(XMPPConnection connection, StanzaFilter stanzaFilter) {
+            super("The connection " + connection
+                            + " is no longer connected while waiting for response with " + stanzaFilter);
         }
     }
 
@@ -225,13 +285,13 @@ public class SmackException extends Exception {
         private static final long serialVersionUID = 4713404802621452016L;
 
         private final String feature;
-        private final String jid;
+        private final Jid jid;
 
         public FeatureNotSupportedException(String feature) {
             this(feature, null);
         }
 
-        public FeatureNotSupportedException(String feature, String jid) {
+        public FeatureNotSupportedException(String feature, Jid jid) {
             super(feature + " not supported" + (jid == null ? "" : " by '" + jid + "'"));
             this.jid = jid;
             this.feature = feature;
@@ -252,7 +312,7 @@ public class SmackException extends Exception {
          *
          * @return the JID which does not support the feature, or null
          */
-        public String getJid() {
+        public Jid getJid() {
             return jid;
         }
     }

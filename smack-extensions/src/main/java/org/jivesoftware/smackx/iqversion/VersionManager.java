@@ -35,6 +35,7 @@ import org.jivesoftware.smack.packet.XMPPError;
 import org.jivesoftware.smack.packet.XMPPError.Condition;
 import org.jivesoftware.smackx.disco.ServiceDiscoveryManager;
 import org.jivesoftware.smackx.iqversion.packet.Version;
+import org.jxmpp.jid.Jid;
 
 /**
  * A Version Manager that automatically responds to version IQs with a predetermined reply.
@@ -52,7 +53,7 @@ import org.jivesoftware.smackx.iqversion.packet.Version;
  *
  * @author Georg Lukas
  */
-public class VersionManager extends Manager {
+public final class VersionManager extends Manager {
     private static final Map<XMPPConnection, VersionManager> INSTANCES = new WeakHashMap<XMPPConnection, VersionManager>();
 
     private static Version defaultVersion;
@@ -123,8 +124,8 @@ public class VersionManager extends Manager {
         ourVersion = null;
     }
 
-    public boolean isSupported(String jid) throws NoResponseException, XMPPErrorException,
-                    NotConnectedException {
+    public boolean isSupported(Jid jid) throws NoResponseException, XMPPErrorException,
+                    NotConnectedException, InterruptedException {
         return ServiceDiscoveryManager.getInstanceFor(connection()).supportsFeature(jid,
                         Version.NAMESPACE);
     }
@@ -137,9 +138,10 @@ public class VersionManager extends Manager {
      * @throws NoResponseException
      * @throws XMPPErrorException
      * @throws NotConnectedException
+     * @throws InterruptedException 
      */
-    public Version getVersion(String jid) throws NoResponseException, XMPPErrorException,
-                    NotConnectedException {
+    public Version getVersion(Jid jid) throws NoResponseException, XMPPErrorException,
+                    NotConnectedException, InterruptedException {
         if (!isSupported(jid)) {
             return null;
         }

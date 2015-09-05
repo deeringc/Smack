@@ -51,12 +51,12 @@ public class GenericSettings extends IQ {
 
 
     /**
-     * Element name of the packet extension.
+     * Element name of the stanza(/packet) extension.
      */
     public static final String ELEMENT_NAME = "generic-metadata";
 
     /**
-     * Namespace of the packet extension.
+     * Namespace of the stanza(/packet) extension.
      */
     public static final String NAMESPACE = "http://jivesoftware.com/protocol/workgroup";
 
@@ -66,7 +66,7 @@ public class GenericSettings extends IQ {
 
     @Override
     protected IQChildElementXmlStringBuilder getIQChildElementBuilder(IQChildElementXmlStringBuilder buf) {
-        buf.append(">");
+        buf.append('>');
         if (ModelUtil.hasLength(getQuery())) {
             buf.append("<query>" + getQuery() + "</query>");
         }
@@ -74,7 +74,7 @@ public class GenericSettings extends IQ {
     }
 
     /**
-     * Packet extension provider for SoundSetting Packets.
+     * Stanza(/Packet) extension provider for SoundSetting Packets.
      */
     public static class InternalProvider extends IQProvider<GenericSettings> {
 

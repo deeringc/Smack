@@ -23,165 +23,120 @@ import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * vCard provider.
- * 
+ *
  * @author Gaston Dombiak
  * @author Derek DeMoro
  * @author Chris Deering
  */
-
 public class VCardProvider extends IQProvider<VCard> {
-    private static final Logger LOGGER = Logger.getLogger(VCardProvider.class.getName());
 
-    private enum Adr {
-        POSTAL,
-        PARCEL,
-        DOM,
-        INTL,
-        PREF,
-        POBOX,
-        EXTADR,
-        STREET,
-        LOCALITY,
-        REGION,
-        PCODE,
-        CTRY,
-        FF
-    }
+    // @formatter:off
+    private static final String[] ADR = new String[] {
+        "POSTAL",
+        "PARCEL",
+        "DOM",
+        "INTL",
+        "PREF",
+        "POBOX",
+        "EXTADR",
+        "STREET",
+        "LOCALITY",
+        "REGION",
+        "PCODE",
+        "CTRY",
+        "FF",
+    };
 
-    private enum Tel {
-        VOICE,
-        FAX,
-        PAGER,
-        MSG,
-        CELL,
-        VIDEO,
-        BBS,
-        MODEM,
-        ISDN,
-        PCS,
-        PREF
-    }
+    private static final String[] TEL = new String[] {
+        "VOICE",
+        "FAX",
+        "PAGER",
+        "MSG",
+        "CELL",
+        "VIDEO",
+        "BBS",
+        "MODEM",
+        "ISDN",
+        "PCS",
+        "PREF",
+    };
+    // @formatter:on
 
     @Override
     public VCard parse(XmlPullParser parser, int initialDepth) throws XmlPullParserException, IOException,
                     SmackException {
-
         VCard vCard = new VCard();
+        String name = null;
 
-        try {
-
-            String name = null;
-
-            outerloop: while (true) {
-
-                int eventType = parser.next();
-
-                switch (eventType) {
-
-                case XmlPullParser.START_TAG:
-
-                    if (initialDepth + 1 == parser.getDepth()) {
-                        
-                        name = parser.getName();
-    
-                        switch (name) {
-    
-                        case "N":
-                            parseName(parser, vCard);
-                            break;
-                        case "ORG":
-                            parseOrg(parser, vCard);
-                            break;
-                        case "TEL":
-                            parseTel(parser, vCard);
-                            break;
-                        case "ADR":
-                            parseAddress(parser, vCard);
-                            break;
-                        case "EMAIL":
-                            parseEmail(parser, vCard);
-                            break;
-                        case "NICKNAME":
-                            vCard.setNickName(parser.nextText());
-                            break;
-                        case "JABBERID":
-                            vCard.setJabberId(parser.nextText());
-                            break;
-                        case "PHOTO":
-                            parsePhoto(parser, vCard);
-                            break;
-                        default:
-                            break;
-                        }
-                    }
+        outerloop: while (true) {
+            int eventType = parser.next();
+            switch (eventType) {
+            case XmlPullParser.START_TAG:
+                name = parser.getName();
+                switch (name) {
+                case "N":
+                    parseName(parser, vCard);
                     break;
-
-                case XmlPullParser.TEXT:
-
-                    if (initialDepth + 1 == parser.getDepth()) {
-                        extractTextField(vCard, parser, name);
-                    }
-
+                case "ORG":
+                    parseOrg(parser, vCard);
                     break;
-
-                case XmlPullParser.END_TAG:
-
-                    if (parser.getDepth() == initialDepth) {
-
-                        break outerloop;
-                    }
+                case "TEL":
+                    parseTel(parser, vCard);
+                    break;
+                case "ADR":
+                    parseAddress(parser, vCard);
+                    break;
+                case "EMAIL":
+                    parseEmail(parser, vCard);
+                    break;
+                case "NICKNAME":
+                    vCard.setNickName(parser.nextText());
+                    break;
+                case "JABBERID":
+                    vCard.setJabberId(parser.nextText());
+                    break;
+                case "PHOTO":
+                    parsePhoto(parser, vCard);
                     break;
                 default:
                     break;
                 }
+                break;
+            case XmlPullParser.TEXT:
+                if (initialDepth + 1 == parser.getDepth()) {
+                    vCard.setField(name, parser.getText());
+                }
+                break;
+            case XmlPullParser.END_TAG:
+                if (parser.getDepth() == initialDepth) {
+                    break outerloop;
+                }
+                break;
+            default:
+                break;
             }
-        }
-        catch (XmlPullParserException e) {
-            LOGGER.log(Level.SEVERE, "Exception parsing VCard", e);
         }
 
         return vCard;
-
     }
 
-    private void extractTextField(VCard vCard, XmlPullParser parser, String name) {
-
-        if (name == null || parser.getText() == null) {
-            return;
-        }
-
-        if (name.length() != 0 && parser.getText().length() != 0) {
-            vCard.setField(name, parser.getText());
-        }
-    }
-
-    private void parseAddress(XmlPullParser parser, VCard vCard) throws XmlPullParserException, IOException {
-
-        int initialDepth = parser.getDepth();
+    private static void parseAddress(XmlPullParser parser, VCard vCard) throws XmlPullParserException, IOException {
+        final int initialDepth = parser.getDepth();
         boolean isWork = true;
         outerloop: while (true) {
-
             int eventType = parser.next();
-
             switch (eventType) {
-
             case XmlPullParser.START_TAG:
-
                 String name = parser.getName();
-
                 if ("HOME".equals(name)) {
                     isWork = false;
                 }
                 else {
-                    for (Adr a : Adr.class.getEnumConstants()) {
-
-                        if (a.name().equals(name)) {
-
+                    for (String adr : ADR) {
+                        if (adr.equals(name)) {
                             if (isWork) {
                                 vCard.setAddressFieldWork(name, parser.nextText());
                             }
@@ -191,9 +146,7 @@ public class VCardProvider extends IQProvider<VCard> {
                         }
                     }
                 }
-
                 break;
-
             case XmlPullParser.END_TAG:
                 if (parser.getDepth() == initialDepth) {
                     break outerloop;
@@ -205,27 +158,20 @@ public class VCardProvider extends IQProvider<VCard> {
         }
     }
 
-    private void parseTel(XmlPullParser parser, VCard vCard) throws XmlPullParserException, IOException {
-
-        int initialDepth = parser.getDepth();
+    private static void parseTel(XmlPullParser parser, VCard vCard) throws XmlPullParserException, IOException {
+        final int initialDepth = parser.getDepth();
         boolean isWork = true;
         String telLabel = null;
 
         outerloop: while (true) {
-
             int eventType = parser.next();
-
             switch (eventType) {
-
             case XmlPullParser.START_TAG:
-
                 String name = parser.getName();
-
                 if ("HOME".equals(name)) {
                     isWork = false;
                 }
                 else {
-
                     if (telLabel != null && "NUMBER".equals(name)) {
                         if (isWork) {
                             vCard.setPhoneWork(telLabel, parser.nextText());
@@ -235,47 +181,34 @@ public class VCardProvider extends IQProvider<VCard> {
                         }
                     }
                     else {
-
-                        for (Tel t : Tel.class.getEnumConstants()) {
-                            if (t.name().equals(name)) {
+                        for (String tel : TEL) {
+                            if (tel.equals(name)) {
                                 telLabel = name;
                             }
                         }
                     }
                 }
                 break;
-
             case XmlPullParser.END_TAG:
-
                 if (parser.getDepth() == initialDepth) {
                     break outerloop;
                 }
-
                 break;
-
             default:
                 break;
             }
-
         }
     }
 
-    private void parseOrg(XmlPullParser parser, VCard vCard) throws XmlPullParserException, IOException {
-
-        int initialDepth = parser.getDepth();
+    private static void parseOrg(XmlPullParser parser, VCard vCard) throws XmlPullParserException, IOException {
+        final int initialDepth = parser.getDepth();
 
         outerloop: while (true) {
-
             int eventType = parser.next();
-
             switch (eventType) {
-
             case XmlPullParser.START_TAG:
-
                 String name = parser.getName();
-
                 switch (name) {
-
                 case "ORGNAME":
                     vCard.setOrganization(parser.nextText());
                     break;
@@ -285,36 +218,28 @@ public class VCardProvider extends IQProvider<VCard> {
                 default:
                     break;
                 }
-
                 break;
             case XmlPullParser.END_TAG:
                 if (parser.getDepth() == initialDepth) {
                     break outerloop;
                 }
                 break;
-
             default:
                 break;
             }
         }
     }
 
-    private void parseEmail(XmlPullParser parser, VCard vCard) throws XmlPullParserException, IOException {
-
-        int initialDepth = parser.getDepth();
+    private static void parseEmail(XmlPullParser parser, VCard vCard) throws XmlPullParserException, IOException {
+        final int initialDepth = parser.getDepth();
         boolean isWork = false;
 
         outerloop: while (true) {
             int eventType = parser.next();
-
             switch (eventType) {
-
             case XmlPullParser.START_TAG:
-
                 String name = parser.getName();
-
                 switch (name) {
-
                 case "WORK":
                     isWork = true;
                     break;
@@ -329,33 +254,27 @@ public class VCardProvider extends IQProvider<VCard> {
                 default:
                     break;
                 }
-
+                break;
             case XmlPullParser.END_TAG:
                 if (parser.getDepth() == initialDepth) {
                     break outerloop;
                 }
-
+                break;
             default:
                 break;
             }
         }
     }
 
-    private void parseName(XmlPullParser parser, VCard vCard) throws XmlPullParserException, IOException {
-
-        int initialDepth = parser.getDepth();
+    private static void parseName(XmlPullParser parser, VCard vCard) throws XmlPullParserException, IOException {
+        final int initialDepth = parser.getDepth();
 
         outerloop: while (true) {
             int eventType = parser.next();
-
             switch (eventType) {
-
             case XmlPullParser.START_TAG:
-
                 String name = parser.getName();
-
                 switch (name) {
-
                 case "FAMILY":
                     vCard.setLastName(parser.nextText());
                     break;
@@ -365,17 +284,20 @@ public class VCardProvider extends IQProvider<VCard> {
                 case "MIDDLE":
                     vCard.setMiddleName(parser.nextText());
                     break;
+                case "PREFIX":
+                    vCard.setPrefix(parser.nextText());
+                    break;
+                case "SUFFIX":
+                    vCard.setSuffix(parser.nextText());
+                    break;
                 default:
                     break;
                 }
-
                 break;
             case XmlPullParser.END_TAG:
-
                 if (parser.getDepth() == initialDepth) {
                     break outerloop;
                 }
-
                 break;
             default:
                 break;
@@ -384,23 +306,17 @@ public class VCardProvider extends IQProvider<VCard> {
         }
     }
 
-    private void parsePhoto(XmlPullParser parser, VCard vCard) throws XmlPullParserException, IOException {
-
-        int initialDepth = parser.getDepth();
+    private static void parsePhoto(XmlPullParser parser, VCard vCard) throws XmlPullParserException, IOException {
+        final int initialDepth = parser.getDepth();
         String binval = null;
         String mimetype = null;
 
         outerloop: while (true) {
             int eventType = parser.next();
-
             switch (eventType) {
-
             case XmlPullParser.START_TAG:
-
                 String name = parser.getName();
-
                 switch (name) {
-
                 case "BINVAL":
                     binval = parser.nextText();
                     break;
@@ -411,9 +327,7 @@ public class VCardProvider extends IQProvider<VCard> {
                     break;
                 }
                 break;
-
             case XmlPullParser.END_TAG:
-
                 if (parser.getDepth() == initialDepth) {
                     break outerloop;
                 }
@@ -423,8 +337,9 @@ public class VCardProvider extends IQProvider<VCard> {
             }
         }
 
-        if (binval == null || mimetype == null)
+        if (binval == null || mimetype == null) {
             return;
+        }
 
         vCard.setAvatar(binval, mimetype);
     }

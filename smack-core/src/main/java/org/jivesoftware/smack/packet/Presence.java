@@ -19,11 +19,13 @@ package org.jivesoftware.smack.packet;
 
 import java.util.Locale;
 
+import org.jivesoftware.smack.packet.id.StanzaIdUtil;
 import org.jivesoftware.smack.util.Objects;
+import org.jivesoftware.smack.util.TypedCloneable;
 import org.jivesoftware.smack.util.XmlStringBuilder;
 
 /**
- * Represents XMPP presence packets. Every presence packet has a type, which is one of
+ * Represents XMPP presence packets. Every presence stanza(/packet) has a type, which is one of
  * the following values:
  * <ul>
  *      <li>{@link Presence.Type#available available} -- (Default) indicates the user is available to
@@ -35,7 +37,7 @@ import org.jivesoftware.smack.util.XmlStringBuilder;
  *          sender's presence.
  *      <li>{@link Presence.Type#unsubscribed unsubscribed} -- grant removal of subscription to
  *          sender's presence.
- *      <li>{@link Presence.Type#error error} -- the presence packet contains an error message.
+ *      <li>{@link Presence.Type#error error} -- the presence stanza(/packet) contains an error message.
  * </ul><p>
  *
  * A number of attributes are optional:
@@ -55,7 +57,7 @@ import org.jivesoftware.smack.util.XmlStringBuilder;
  *
  * @author Matt Tucker
  */
-public final class Presence extends Stanza {
+public final class Presence extends Stanza implements TypedCloneable<Presence> {
 
     public static final String ELEMENT = "presence";
 
@@ -86,6 +88,23 @@ public final class Presence extends Stanza {
         setStatus(status);
         setPriority(priority);
         setMode(mode);
+    }
+
+    /**
+     * Copy constructor.
+     * <p>
+     * This does not perform a deep clone, as extension elements are shared between the new and old
+     * instance.
+     * </p>
+     *
+     * @param other
+     */
+    public Presence(Presence other) {
+        super(other);
+        this.type = other.type;
+        this.status = other.status;
+        this.priority = other.priority;
+        this.mode = other.mode;
     }
 
     /**
@@ -229,6 +248,31 @@ public final class Presence extends Stanza {
     }
 
     /**
+     * Creates and returns a copy of this presence stanza.
+     * <p>
+     * This does not perform a deep clone, as extension elements are shared between the new and old
+     * instance.
+     * </p>
+     * @return a clone of this presence.
+     */
+    @Override
+    public Presence clone() {
+        return new Presence(this);
+    }
+
+    /**
+     * Clone this presence and set a newly generated stanza ID as the clone's ID.
+     *
+     * @return a "clone" of this presence  with a different stanza ID.
+     * @since 4.1.2
+     */
+    public Presence cloneWithNewId() {
+        Presence clone = clone();
+        clone.setStanzaId(StanzaIdUtil.newStanzaId());
+        return clone;
+    }
+
+    /**
      * An enum to represent the presence type. Note that presence type is often confused
      * with presence mode. Generally, if a user is signed in to a server, they have a presence
      * type of {@link #available available}, even if the mode is {@link Mode#away away},
@@ -268,12 +312,12 @@ public final class Presence extends Stanza {
         unsubscribed,
 
         /**
-         * The presence packet contains an error message.
+         * The presence stanza(/packet) contains an error message.
          */
         error,
 
         /**
-         * A presence probe as defined in section 4.3 of RFC 6121
+         * A presence probe as defined in section 4.3 of RFC 6121.
          */
         probe,
         ;

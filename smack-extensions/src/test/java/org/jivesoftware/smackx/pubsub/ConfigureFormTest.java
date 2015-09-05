@@ -33,9 +33,10 @@ import org.jivesoftware.smackx.pubsub.packet.PubSub;
 import org.jivesoftware.smackx.xdata.packet.DataForm;
 import org.junit.Assert;
 import org.junit.Test;
+import org.jxmpp.stringprep.XmppStringprepException;
 
 /**
- * 
+ * Configure form test.
  * @author Robin Collier
  *
  */
@@ -48,24 +49,24 @@ public class ConfigureFormTest
 		form.setChildrenAssociationPolicy(ChildrenAssociationPolicy.owners);
 		assertEquals(ChildrenAssociationPolicy.owners, form.getChildrenAssociationPolicy());
 	}
-	
+
 	@Test
-	public void getConfigFormWithInsufficientPriviliges() throws XMPPException, SmackException, IOException
+	public void getConfigFormWithInsufficientPriviliges() throws XMPPException, SmackException, IOException, InterruptedException
 	{
 		ThreadedDummyConnection con = ThreadedDummyConnection.newInstance();
-		PubSubManager mgr = new PubSubManager(con);
+		PubSubManager mgr = new PubSubManager(con, PubSubManagerTest.DUMMY_PUBSUB_SERVICE);
 		DiscoverInfo info = new DiscoverInfo();
 		Identity ident = new Identity("pubsub", null, "leaf");
 		info.addIdentity(ident);
 		con.addIQReply(info);
-		
+
 		Node node = mgr.getNode("princely_musings");
-		
+
 		PubSub errorIq = new PubSub();
 		XMPPError error = new XMPPError(Condition.forbidden);
 		errorIq.setError(error);
 		con.addIQReply(errorIq);
-		
+
 		try
 		{
 			node.getNodeConfiguration();
@@ -77,20 +78,20 @@ public class ConfigureFormTest
 	}
 
 	@Test (expected=SmackException.class)
-	public void getConfigFormWithTimeout() throws XMPPException, SmackException
+	public void getConfigFormWithTimeout() throws XMPPException, SmackException, InterruptedException, XmppStringprepException
 	{
 		ThreadedDummyConnection con = new ThreadedDummyConnection();
-		PubSubManager mgr = new PubSubManager(con);
+		PubSubManager mgr = new PubSubManager(con, PubSubManagerTest.DUMMY_PUBSUB_SERVICE);
 		DiscoverInfo info = new DiscoverInfo();
 		Identity ident = new Identity("pubsub", null, "leaf");
 		info.addIdentity(ident);
 		con.addIQReply(info);
-		
+
 		Node node = mgr.getNode("princely_musings");
-		
+
 		SmackConfiguration.setDefaultPacketReplyTimeout(100);
 		con.setTimeout();
-		
+
 		node.getNodeConfiguration();
 	}
 }

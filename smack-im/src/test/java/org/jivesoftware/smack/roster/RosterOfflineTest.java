@@ -21,7 +21,6 @@ import static org.junit.Assert.assertNotNull;
 
 import org.jivesoftware.smack.DummyConnection;
 import org.jivesoftware.smack.SmackException;
-import org.jivesoftware.smack.XMPPException;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -37,17 +36,12 @@ public class RosterOfflineTest {
     Roster roster;
 
     @Before
-    public void setup() throws XMPPException, SmackException {
+    public void setup() {
         this.connection = new DummyConnection();
         assertFalse(connection.isConnected());
 
         roster = Roster.getInstanceFor(connection);
         assertNotNull(roster);
-    }
-
-    @Test(expected = SmackException.class)
-    public void shouldThrowExceptionOnCreateEntry() throws Exception {
-        roster.createEntry("test", "test", null);
     }
 
     @Test(expected = SmackException.class)
